@@ -1,3 +1,5 @@
+import morphdom from 'morphdom';
+
 import WrappedElement from './wrapped-element';
 import templates from './../templates';
 
@@ -19,22 +21,25 @@ export default class WrappedSelect extends WrappedElement {
   }
 
   set options(options) {
-    const fragment = document.createDocumentFragment();
-    const addOptionToFragment = data => {
+    const newDOMStructure = document.createElement('div');
+    const addOptionToDOM = data => {
       // Create a standard select option
       const template = templates.option(data);
       // Append it to fragment
-      fragment.appendChild(template);
+      newDOMStructure.appendChild(template);
     };
 
     // Add each list item to list
-    options.forEach(optionData => addOptionToFragment(optionData));
+    options.forEach(optionData => addOptionToDOM(optionData));
 
-    this.appendDocFragment(fragment);
+    this.render(newDOMStructure);
   }
 
-  appendDocFragment(fragment) {
-    this.element.innerHTML = '';
-    this.element.appendChild(fragment);
+  render(newDOMStructure) {
+    const currentDOMStructure = this.element;
+
+    morphdom(currentDOMStructure, newDOMStructure, {
+      childrenOnly: true,
+    });
   }
 }

@@ -477,23 +477,28 @@ class Choices {
   =                Private functions            =
   ============================================= */
 
-  _render() {
-    this._currentState = this._store.state;
-
-    const stateChanged =
+  _shouldComponentUpdate() {
+    const hasStateChanged =
       this._currentState.choices !== this._prevState.choices ||
       this._currentState.groups !== this._prevState.groups ||
       this._currentState.items !== this._prevState.items;
-    const shouldRenderChoices = this._isSelectElement;
-    const shouldRenderItems =
-      this._currentState.items !== this._prevState.items;
 
-    if (!stateChanged) {
+    return hasStateChanged;
+  }
+
+  _render() {
+    this._currentState = this._store.state;
+
+    if (!this._shouldComponentUpdate()) {
       return;
     }
 
-    if (shouldRenderChoices) {
-      this._renderChoices();
+    const shouldRenderChoicesOrGroups = this._isSelectElement;
+    const shouldRenderItems =
+      this._currentState.items !== this._prevState.items;
+
+    if (shouldRenderChoicesOrGroups) {
+      this._renderChoicesOrGroups();
     }
 
     if (shouldRenderItems) {
@@ -503,97 +508,84 @@ class Choices {
     this._prevState = this._currentState;
   }
 
-  _renderChoices() {
-    const { activeGroups, activeChoices } = this._store;
-    let choiceListFragment = document.createDocumentFragment();
+  // @todo refactor this method to not handle notices too
+  _renderChoicesOrGroups() {
+    const { activeGroups, activeChoices, activeItems } = this._store;
+    const canAddItem = this._canAddItem(activeItems, this.input.value);
+    const hasActiveGroups = activeGroups.length >= 1;
+    const hasActiveChoices = activeChoices.length >= 1;
 
-    this.choiceList.clear();
+    let newDOMStructure = document.createElement('div');
 
+    // reset scroll position
     if (this.config.resetScrollPosition) {
       requestAnimationFrame(() => this.choiceList.scrollToTop());
     }
 
-    // If we have grouped options
-    if (activeGroups.length >= 1 && !this._isSearching) {
-      // If we have a placeholder choice along with groups
-      const activePlaceholders = activeChoices.filter(
-        activeChoice =>
-          activeChoice.placeholder === true && activeChoice.groupId === -1,
-      );
-      if (activePlaceholders.length >= 1) {
-        choiceListFragment = this._createChoicesFragment(
-          activePlaceholders,
-          choiceListFragment,
-        );
+    if (hasActiveGroups || hasActiveChoices) {
+      if (!canAddItem.response) {
+        const noticeText = canAddItem.notice;
+        const template = this._getTemplate('notice', noticeText);
+
+        newDOMStructure.append(template);
+      } else if (this._isSearching) {
+        newDOMStructure = this._createChoiceStucture({
+          choices: activeChoices,
+          fragment: newDOMStructure,
+        });
+      } else if (hasActiveGroups) {
+        newDOMStructure = this._createGroupStructure({
+          groups: activeGroups,
+          choices: activeChoices,
+          fragment: newDOMStructure,
+        });
+      } else {
+        newDOMStructure = this._createChoiceStucture({
+          choices: activeChoices,
+          fragment: newDOMStructure,
+        });
       }
-      choiceListFragment = this._createGroupsFragment(
-        activeGroups,
-        activeChoices,
-        choiceListFragment,
-      );
-    } else if (activeChoices.length >= 1) {
-      choiceListFragment = this._createChoicesFragment(
-        activeChoices,
-        choiceListFragment,
-      );
+    } else if (this._isSearching) {
+      const noticeText = isType('Function', this.config.noResultsText)
+        ? this.config.noResultsText()
+        : this.config.noResultsText;
+      const template = this._getTemplate('notice', noticeText, 'no-results');
+
+      newDOMStructure.append(template);
     }
 
-    // If we have choices to show
-    if (
-      choiceListFragment.childNodes &&
-      choiceListFragment.childNodes.length > 0
-    ) {
-      const activeItems = this._store.activeItems;
-      const canAddItem = this._canAddItem(activeItems, this.input.value);
+    const choicesToSelect = newDOMStructure.childNodes.length;
+    if (!choicesToSelect) {
+      const noticeText = isType('Function', this.config.noChoicesText)
+        ? this.config.noChoicesText()
+        : this.config.noChoicesText;
+      const template = this._getTemplate('notice', noticeText, 'no-choices');
 
-      // ...and we can select them
-      if (canAddItem.response) {
-        // ...append them and highlight the first choice
-        this.choiceList.append(choiceListFragment);
-        this._highlightChoice();
-      } else {
-        // ...otherwise show a notice
-        this.choiceList.append(this._getTemplate('notice', canAddItem.notice));
-      }
-    } else {
-      // Otherwise show a notice
-      let dropdownItem;
-      let notice;
+      newDOMStructure.append(template);
+    }
 
-      if (this._isSearching) {
-        notice = isType('Function', this.config.noResultsText)
-          ? this.config.noResultsText()
-          : this.config.noResultsText;
+    this.choiceList.render(newDOMStructure);
 
-        dropdownItem = this._getTemplate('notice', notice, 'no-results');
-      } else {
-        notice = isType('Function', this.config.noChoicesText)
-          ? this.config.noChoicesText()
-          : this.config.noChoicesText;
-
-        dropdownItem = this._getTemplate('notice', notice, 'no-choices');
-      }
-
-      this.choiceList.append(dropdownItem);
+    // highlight first choice
+    if (canAddItem) {
+      this._highlightChoice();
     }
   }
 
   _renderItems() {
     const activeItems = this._store.activeItems || [];
-    this.itemList.clear();
-
     // Create a fragment to store our list items
     // (so we don't have to update the DOM for each item)
-    const itemListFragment = this._createItemsFragment(activeItems);
+    const newDOMStructure = this._createItemStructure({
+      items: activeItems,
+    });
 
-    // If we have items to add, append them
-    if (itemListFragment.childNodes) {
-      this.itemList.append(itemListFragment);
-    }
+    this.itemList.render(newDOMStructure);
   }
 
-  _createGroupsFragment(groups, choices, fragment) {
-    const groupFragment = fragment || document.createDocumentFragment();
+  // @todo make this method less side-effecty
+  _createGroupStructure({ groups, choices, container }) {
+    let DOMStructure = container || document.createElement('div');
     const getGroupChoices = group =>
       choices.filter(choice => {
         if (this._isSelectOneElement) {
@@ -614,17 +606,23 @@ class Choices {
       const groupChoices = getGroupChoices(group);
       if (groupChoices.length >= 1) {
         const dropdownGroup = this._getTemplate('choiceGroup', group);
-        groupFragment.appendChild(dropdownGroup);
-        this._createChoicesFragment(groupChoices, groupFragment, true);
+        DOMStructure.appendChild(dropdownGroup);
+
+        DOMStructure = this._createChoiceStucture({
+          choices: groupChoices,
+          container: DOMStructure,
+          withinGroup: true,
+        });
       }
     });
 
-    return groupFragment;
+    return DOMStructure;
   }
 
-  _createChoicesFragment(choices, fragment, withinGroup = false) {
-    // Create a fragment to store our list items (so we don't have to update the DOM for each item)
-    const choicesFragment = fragment || document.createDocumentFragment();
+  // @todo make this method less side-effecty
+  _createChoiceStucture({ choices, container, withinGroup = false }) {
+    // Create a new DOM structure to store our list items (so we don't have to update the DOM for each item)
+    const DOMStructure = container || document.createElement('div');
     const {
       renderSelectedChoices,
       searchResultLimit,
@@ -642,7 +640,7 @@ class Choices {
           choice,
           this.config.itemSelectText,
         );
-        choicesFragment.appendChild(dropdownItem);
+        DOMStructure.appendChild(dropdownItem);
       }
     };
 
@@ -688,13 +686,13 @@ class Choices {
       }
     }
 
-    return choicesFragment;
+    return DOMStructure;
   }
 
-  _createItemsFragment(items, fragment = null) {
+  _createItemStructure({ items, container }) {
     // Create fragment to add elements to
     const { shouldSortItems, sortFn, removeItemButton } = this.config;
-    const itemListFragment = fragment || document.createDocumentFragment();
+    const DOMStructure = container || document.createElement('div');
 
     // If sorting is enabled, filter items
     if (shouldSortItems && !this._isSelectOneElement) {
@@ -713,17 +711,17 @@ class Choices {
       // Create new list element
       const listItem = this._getTemplate('item', item, removeItemButton);
       // Append it to list
-      itemListFragment.appendChild(listItem);
+      DOMStructure.appendChild(listItem);
     };
 
     // Add each list item to list
     items.forEach(item => addItemToFragment(item));
 
-    return itemListFragment;
+    return DOMStructure;
   }
 
-  _triggerChange(value) {
-    if (value === undefined || value === null) {
+  _triggerChange(value = null) {
+    if (!value) {
       return;
     }
 
@@ -874,8 +872,10 @@ class Choices {
     let placeholderItem = this.itemList.getChild(
       `.${this.config.classNames.placeholder}`,
     );
+
     if (isLoading) {
       this.containerOuter.addLoadingState();
+
       if (this._isSelectOneElement) {
         if (!placeholderItem) {
           placeholderItem = this._getTemplate(
@@ -1623,24 +1623,14 @@ class Choices {
     }
 
     // Trigger change event
-    if (group && group.value) {
-      this.passedElement.triggerEvent(EVENTS.addItem, {
-        id,
-        value: passedValue,
-        label: passedLabel,
-        customProperties: passedCustomProperties,
-        groupValue: group.value,
-        keyCode: passedKeyCode,
-      });
-    } else {
-      this.passedElement.triggerEvent(EVENTS.addItem, {
-        id,
-        value: passedValue,
-        label: passedLabel,
-        customProperties: passedCustomProperties,
-        keyCode: passedKeyCode,
-      });
-    }
+    this.passedElement.triggerEvent(EVENTS.addItem, {
+      id,
+      value: passedValue,
+      label: passedLabel,
+      customProperties: passedCustomProperties,
+      keyCode: passedKeyCode,
+      groupValue: group && group.value,
+    });
 
     return this;
   }
@@ -1654,27 +1644,18 @@ class Choices {
     const group = groupId >= 0 ? this._store.getGroupById(groupId) : null;
 
     this._store.dispatch(removeItem(id, choiceId));
-
-    if (group && group.value) {
-      this.passedElement.triggerEvent(EVENTS.removeItem, {
-        id,
-        value,
-        label,
-        groupValue: group.value,
-      });
-    } else {
-      this.passedElement.triggerEvent(EVENTS.removeItem, {
-        id,
-        value,
-        label,
-      });
-    }
+    this.passedElement.triggerEvent(EVENTS.removeItem, {
+      id,
+      value,
+      label,
+      groupValue: group && group.value,
+    });
 
     return this;
   }
 
   _addChoice({
-    value,
+    value = null,
     label = null,
     isSelected = false,
     isDisabled = false,
@@ -1683,7 +1664,7 @@ class Choices {
     placeholder = false,
     keyCode = null,
   }) {
-    if (typeof value === 'undefined' || value === null) {
+    if (!value) {
       return;
     }
 

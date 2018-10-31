@@ -90,6 +90,7 @@
     "custom-event-polyfill": "^0.3.0",
     "deepmerge": "^2.2.1",
     "fuse.js": "^3.1.0",
+    "morphdom": "^2.3.3",
     "redux": "^3.3.1"
   },
   "npmName": "choices.js",

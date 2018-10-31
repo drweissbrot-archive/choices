@@ -23,16 +23,6 @@ describe('components/list', () => {
     });
   });
 
-  describe('clear', () => {
-    it("clears element's inner HTML", () => {
-      const innerHTML = 'test';
-      instance.element.innerHTML = innerHTML;
-      expect(instance.element.innerHTML).to.equal(innerHTML);
-      instance.clear();
-      expect(instance.element.innerHTML).to.equal('');
-    });
-  });
-
   describe('append', () => {
     it('appends passed node to element', () => {
       const elementToAppend = document.createElement('span');

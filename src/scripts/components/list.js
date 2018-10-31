@@ -1,3 +1,5 @@
+import morphdom from 'morphdom';
+
 import { SCROLLING_SPEED } from '../constants';
 
 export default class List {
@@ -9,16 +11,20 @@ export default class List {
     this.hasChildren = !!this.element.children;
   }
 
-  clear() {
-    this.element.innerHTML = '';
-  }
-
   append(node) {
     this.element.appendChild(node);
   }
 
   getChild(selector) {
     return this.element.querySelector(selector);
+  }
+
+  render(newDOMStructure) {
+    const currentDOMStructure = this.element;
+
+    morphdom(currentDOMStructure, newDOMStructure, {
+      childrenOnly: true,
+    });
   }
 
   scrollToTop() {
