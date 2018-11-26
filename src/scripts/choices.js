@@ -1163,6 +1163,7 @@ class Choices {
     // If keycode has a function, run it
     if (keyDownActions[keyCode]) {
       keyDownActions[keyCode]({
+        event,
         target,
         keyCode,
         metaKey,
@@ -1234,7 +1235,7 @@ class Choices {
     }
   }
 
-  _onEnterKey({ target, activeItems, hasActiveDropdown }) {
+  _onEnterKey({ event, target, activeItems, hasActiveDropdown }) {
     const { ENTER_KEY: enterKey } = KEY_CODES;
     // If enter key is pressed and the input has a value
     if (this._isTextElement && target.value) {
@@ -1284,7 +1285,7 @@ class Choices {
     }
   }
 
-  _onDirectionKey({ hasActiveDropdown, keyCode, metaKey }) {
+  _onDirectionKey({ event, hasActiveDropdown, keyCode, metaKey }) {
     const {
       DOWN_KEY: downKey,
       PAGE_UP_KEY: pageUpKey,
@@ -1347,7 +1348,7 @@ class Choices {
     }
   }
 
-  _onDeleteKey({ target, hasFocusedInput, activeItems }) {
+  _onDeleteKey({ event, target, hasFocusedInput, activeItems }) {
     // If backspace or delete key is pressed and the input has no value
     if (hasFocusedInput && !target.value && !this._isSelectOneElement) {
       this._handleBackspace(activeItems);
@@ -1641,24 +1642,14 @@ class Choices {
     }
 
     // Trigger change event
-    if (group && group.value) {
-      this.passedElement.triggerEvent(EVENTS.addItem, {
-        id,
-        value: passedValue,
-        label: passedLabel,
-        customProperties: passedCustomProperties,
-        groupValue: group.value,
-        keyCode: passedKeyCode,
-      });
-    } else {
-      this.passedElement.triggerEvent(EVENTS.addItem, {
-        id,
-        value: passedValue,
-        label: passedLabel,
-        customProperties: passedCustomProperties,
-        keyCode: passedKeyCode,
-      });
-    }
+    this.passedElement.triggerEvent(EVENTS.addItem, {
+      id,
+      value: passedValue,
+      label: passedLabel,
+      customProperties: passedCustomProperties,
+      groupValue: group && group.value ? group.value : undefined,
+      keyCode: passedKeyCode,
+    });
 
     return this;
   }
@@ -2060,7 +2051,7 @@ class Choices {
       this._addItem({
         value: foundChoice.value,
         label: foundChoice.label,
-        id: foundChoice.id,
+        choiceId: foundChoice.id,
         groupId: foundChoice.groupId,
         customProperties: foundChoice.customProperties,
         placeholder: foundChoice.placeholder,

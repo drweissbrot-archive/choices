@@ -33,6 +33,9 @@
           <label for="choices-basic">Basic</label>
           <button class="open-dropdown push-bottom">Open dropdown</button>
           <button class="close-dropdown push-bottom">Close dropdown</button>
+          <button class="toggle-dropdown push-bottom">Toggle dropdown</button>
+          <button class="disable push-bottom">Disable</button>
+          <button class="enable push-bottom">Enable</button>
           <select class="form-control" name="choices-basic" id="choices-basic" multiple>
             <option value="Choice 1">Choice 1</option>
             <option value="Choice 2">Choice 2</option>
@@ -173,6 +176,24 @@
           <label for="choices-custom-properties">Custom properties</label>
           <select class="form-control" name="choices-custom-properties" id="choices-custom-properties" multiple></select>
         </div>
+
+        <div data-test-hook="within-form">
+          <form>
+            <label for="choices-within-form">Within form</label>
+            <select class="form-control" name="choices-within-form" id="choices-within-form" multiple>
+              <option value="Choice 1">Choice 1</option>
+            </select>
+          </form>
+        </div>
+
+        <div data-test-hook="set-choice-by-value">
+          <label for="choices-set-choice-by-value">Dynamically set choice by value</label>
+          <select class="form-control" name="choices-set-choice-by-value" id="choices-set-choice-by-value" multiple>
+            <option value="Choice 1">Choice 1</option>
+            <option value="Choice 2">Choice 2</option>
+            <option value="Choice 3">Choice 3</option>
+          </select>
+        </div>
       </div>
     </div>
     <script>
@@ -185,6 +206,18 @@
 
         document.querySelector('button.close-dropdown').addEventListener('click', () => {
           choicesBasic.hideDropdown();
+        });
+
+        document.querySelector('button.toggle-dropdown').addEventListener('click', () => {
+          choicesBasic.toggleDropdown();
+        });
+
+        document.querySelector('button.disable').addEventListener('click', () => {
+          choicesBasic.disable();
+        });
+
+        document.querySelector('button.enable').addEventListener('click', () => {
+          choicesBasic.enable();
         });
 
         new Choices('#choices-remove-button', {
@@ -270,6 +303,10 @@
             }
           ]
         });
+
+        new Choices('#choices-within-form');
+
+        new Choices('#choices-set-choice-by-value').setChoiceByValue('Choice 2');
       });
     </script>
   </body>
